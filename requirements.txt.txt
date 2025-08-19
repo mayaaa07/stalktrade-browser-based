@@ -1,0 +1,11 @@
+flask
+flask-cors
+flask-socketio
+yfinance
+chatterbot
+chatterbot-corpus
+nltk
+spacy
+numpy
+gunicorn
+scikit-learn
