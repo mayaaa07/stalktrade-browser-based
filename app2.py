@@ -273,6 +273,42 @@ def market_sentiment():
         "comment": "Investors optimistic after earnings."
     })
 
+# === ADD THIS CODE TO YOUR app2.py ===
+@app.route('/chatbot', methods=['POST'])
+def chatbot():
+    data = request.json
+    query = data.get('message', '').strip()
+    
+    if not query:
+        return jsonify({"response": "Please enter a message."})
+    
+    # Use your existing NLP logic
+    try:
+        # Get sentiment
+        sentiment = sia.polarity_scores(query)
+        sentiment_label = "Neutral"
+        if sentiment["compound"] > 0.2:
+            sentiment_label = "Positive"
+        elif sentiment["compound"] < -0.2:
+            sentiment_label = "Negative"
+        
+        # Get chatbot response
+        bot_response = str(trading_bot.get_response(query))
+        
+        # Create final response
+        response = f"{bot_response} (Market Sentiment: {sentiment_label})"
+        
+        return jsonify({"response": response})
+        
+    except Exception as e:
+        return jsonify({"response": f"I'm having trouble processing that right now. Error: {str(e)}"})
+
+# Also add this endpoint for consistency
+@app.route('/api/chatbot', methods=['POST'])
+def api_chatbot():
+    return chatbot()
+# === END OF CODE TO ADD ===
+
 # --- Place Order ---
 @app.route("/api/order", methods=["POST"])
 def place_order():
@@ -378,7 +414,6 @@ def nlp():
 
 
 
-
 watchlist = [
     {"name": "Apple", "price": 175.0},
     {"name": "Microsoft", "price": 300.0},
@@ -455,9 +490,6 @@ def remove_watchlist():
         watchlist.remove(symbol)
     return jsonify({"watchlist": watchlist})
 
-
-
-
 @app.route('/api/yfinance-info/<symbol>')
 def yfinance_info(symbol):
     return jsonify({"symbol": symbol, "price": 150, "change": 1.2, "changePercent": 0.8})
@@ -485,18 +517,13 @@ def buy_stock():
     return jsonify({"message": f"Bought {quantity} shares of {symbol} at {price}."})
 
 
-
 @app.route("/api/portfolio", methods=["GET"])
 def get_portfolio():
     return jsonify(portfolio)
-
 
 @app.route("/")
 def index():
     return render_template("working_candle.html")
 
-
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=True)
-
-

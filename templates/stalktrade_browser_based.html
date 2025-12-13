@@ -2063,39 +2063,126 @@
             return recommendations;
         }
 
-        // Process NLP query
-        function processNLPQuery() {
+        async function processNLPQuery() {
             const query = elements.nlpInput.value.trim();
             if (!query) return;
             
             // Show loading state
             elements.nlpResponseContent.innerHTML = '<div class="loading"></div> Processing your request...';
             elements.nlpResponse.classList.remove('hidden');
+            elements.nlpResponseActions.innerHTML = '';
             
-            // Simulate API call delay
-            setTimeout(() => {
-                const response = generateNLPResponse(query);
-                elements.nlpResponseContent.innerHTML = response.text;
+            try {
+                console.log('Sending query to AI assistant:', query);
                 
-                // Add action buttons if any
-                if (response.actions && response.actions.length > 0) {
-                    elements.nlpResponseActions.innerHTML = '';
-                    response.actions.forEach(action => {
-                        const btn = document.createElement('button');
-                        btn.className = 'btn-primary';
-                        btn.style.marginRight = '5px';
-                        btn.textContent = action.label;
-                        btn.addEventListener('click', action.handler);
-                        elements.nlpResponseActions.appendChild(btn);
+                // CALL YOUR REAL BACKEND API
+                const response = await fetch('http://localhost:5000/api/nlp', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('AI Response:', data);
+                
+                // Display the response from your backend
+                elements.nlpResponseContent.innerHTML = data.answer;
+                
+                // Also try to get voice command actions
+                try {
+                    const actionsResponse = await fetch('http://localhost:5000/process_voice_command', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ command: query })
                     });
-                } else {
-                    elements.nlpResponseActions.innerHTML = '';
+                    
+                    if (actionsResponse.ok) {
+                        const actionsData = await actionsResponse.json();
+                        if (actionsData.action) {
+                            createActionButtons(actionsData);
+                        }
+                    }
+                } catch (actionError) {
+                    console.log('No actions available for this query');
                 }
                 
                 // Clear input
                 elements.nlpInput.value = '';
-            }, 1500);
+                
+            } catch (error) {
+                console.error('AI Assistant Error:', error);
+                
+                // FALLBACK: Use your existing simulated response if backend fails
+                elements.nlpResponseContent.innerHTML = '⚠️ AI Assistant is currently unavailable. Using simulated response...';
+                
+                setTimeout(() => {
+                    const response = generateNLPResponse(query);
+                    elements.nlpResponseContent.innerHTML = response.text;
+                    
+                    if (response.actions && response.actions.length > 0) {
+                        elements.nlpResponseActions.innerHTML = '';
+                        response.actions.forEach(action => {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn-primary';
+                            btn.style.marginRight = '5px';
+                            btn.textContent = action.label;
+                            btn.addEventListener('click', action.handler);
+                            elements.nlpResponseActions.appendChild(btn);
+                        });
+                    }
+                    
+                    elements.nlpInput.value = '';
+                }, 1000);
+            }
         }
+
+        // Helper function for action buttons
+        function createActionButtons(actionData) {
+            elements.nlpResponseActions.innerHTML = '';
+            
+            if (actionData.action === 'buy') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.textContent = `Buy ${actionData.shares || 1} shares of ${actionData.symbol}`;
+                btn.onclick = () => {
+                    selectStock(actionData.symbol);
+                    showBuyDialog();
+                    elements.nlpResponse.classList.add('hidden');
+                };
+                elements.nlpResponseActions.appendChild(btn);
+            }
+            else if (actionData.action === 'show_chart') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.textContent = `Show ${actionData.symbol} Chart`;
+                btn.onclick = () => {
+                    selectStock(actionData.symbol);
+                    switchTab('chart');
+                    elements.nlpResponse.classList.add('hidden');
+                };
+                elements.nlpResponseActions.appendChild(btn);
+            }
+            else if (actionData.action === 'show_price') {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.textContent = `View ${actionData.symbol} Details`;
+                btn.onclick = () => {
+                    selectStock(actionData.symbol);
+                    elements.nlpResponse.classList.add('hidden');
+                };
+                elements.nlpResponseActions.appendChild(btn);
+            }
+        }
+
+
 
         // Generate NLP response
         function generateNLPResponse(query) {
